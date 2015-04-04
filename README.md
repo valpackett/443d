@@ -21,8 +21,20 @@ $ go get github.com/myfreeweb/443d
 
 ## Usage
 
+Run the binary! :D
+
+The default options are equivalent to this:
+
 ```bash
-$ 443d -http="localhost:8080" -ssh="localhost:22" -listen="0.0.0.0:443" -crt="server.crt" -key="server.key"
+$ 443d -http="localhost:8080" -ssh="localhost:22" \
+       -listen="0.0.0.0:443" -crt="server.crt" -key="server.key"
+```
+
+If your HTTP server is on a unix domain socket:
+
+```bash
+$ 443d -http="/var/run/sweetroll/sweetroll.sock" -httpnet="unix" \
+       -crt="server.crt" -key="server.key"
 ```
 
 Use [supervisord] or something like that to run in production, it does not daemonize itself & logs to stderr.
