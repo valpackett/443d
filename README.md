@@ -21,20 +21,39 @@ $ go get github.com/myfreeweb/443d
 
 ## Usage
 
-Run the binary! :D
+You need to write a simple configuration file.
+The syntax is [TOML].
+Here's an example:
 
-The default options are equivalent to this:
+```toml
+# This is an example configuration for 443d.
 
-```bash
-$ 443d -http="localhost:8080" -ssh="localhost:22" \
-       -listen="0.0.0.0:443" -crt="server.crt" -key="server.key"
+listen = "0.0.0.0:443"
+cert = "/etc/certs/server.crt"
+key = "/etc/certs/server.key"
+
+[ssh]
+address = "127.0.0.1:22"
+
+# [[http.<host glob>.paths.<path prefix>]] :
+
+[[http."*".paths."/git"]]
+net = "unix"
+address = "/var/run/gitweb/gitweb.sock"
+
+# You can have multiple backends, requests will be load-balanced randomly
+
+[[http."*".paths."/"]]
+address = "localhost:8000"
+
+[[http."*".paths."/"]]
+address = "localhost:8001"
 ```
 
-If your HTTP server is on a unix domain socket:
+Now run the binary:
 
 ```bash
-$ 443d -http="/var/run/sweetroll/sweetroll.sock" -httpnet="unix" \
-       -crt="server.crt" -key="server.key"
+$ 443d -config="/usr/local/etc/443d.toml"
 ```
 
 Use [supervisord] or something like that to run in production, it does not daemonize itself & logs to stderr.
@@ -47,6 +66,7 @@ Do not run as root, instead...
 
 You can make a chroot for it easily, you only need `/dev/urandom`.
 
+[TOML]: https://github.com/toml-lang/toml
 [supervisord]: http://supervisord.org
 
 ## License
