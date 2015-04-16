@@ -27,6 +27,7 @@ type HttpBackend struct {
 	Paths map[string][]struct {
 		Net     string
 		Address string
+		CutPath bool
 	}
 	PathOrder []string
 }
@@ -100,6 +101,9 @@ func applyHost(hostcnf *HttpBackend, r *http.Request) {
 				r.URL.Scheme = backend.Net
 			}
 			r.URL.Host = backend.Address
+			if backend.CutPath {
+				r.URL.Path = strings.TrimPrefix(r.URL.Path, pathprefix)
+			}
 			return
 		}
 	}

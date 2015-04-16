@@ -1,6 +1,6 @@
 # 443d [![ISC License](https://img.shields.io/badge/license-ISC-red.svg?style=flat)](https://tldrlegal.com/license/-isc-license)
 
-A simple reverse proxy with [HTTP/2] support & TLS/SSH demultiplexing.
+A reverse proxy with [HTTP/2] support & TLS/SSH demultiplexing.
 
 Basically, like [nghttpx] + [sslh], but in [Go].
 
@@ -40,6 +40,7 @@ address = "127.0.0.1:22"
 [[http."*".paths."/git"]]
 net = "unix"
 address = "/var/run/gitweb/gitweb.sock"
+cut_path = true # Means the server will see /git as /, /git/path as /path, etc.
 
 # You can have multiple backends, requests will be load-balanced randomly
 
