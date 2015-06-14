@@ -22,39 +22,37 @@ $ go get github.com/myfreeweb/443d
 ## Usage
 
 You need to write a simple configuration file.
-The syntax is [TOML].
+The syntax is [YAML].
 Here's an example:
 
-```toml
+```yaml
 # This is an example configuration for 443d.
 
-listen = "0.0.0.0:443"
-cert = "/etc/certs/server.crt"
-key = "/etc/certs/server.key"
+listen: 0.0.0.0:443
+cert: /etc/certs/server.crt
+key: /etc/certs/server.key
 
-[ssh]
-address = "127.0.0.1:22"
+ssh:
+  address: 127.0.0.1:22
 
-# [[http.<host glob>.paths.<path prefix>]] :
-
-[[http."*".paths."/git"]]
-net = "unix"
-address = "/var/run/gitweb/gitweb.sock"
-cut_path = true # Means the server will see /git as /, /git/path as /path, etc.
-
-# You can have multiple backends, requests will be load-balanced randomly
-
-[[http."*".paths."/"]]
-address = "localhost:8000"
-
-[[http."*".paths."/"]]
-address = "localhost:8001"
+http:
+  "*": # host glob pattern (virtual hosts basically)
+    paths: # URL path prefix matching, longer prefixes are matched first
+      /git:
+        - type: unix # default is http
+          address: /var/run/gitweb/gitweb.sock # format depends on the type
+          cut_path: true # means the backend will see /git as /, /git/path as /path, etc. default is false
+      /:
+        # You can have multiple backends, requests will be load-balanced randomly
+        - address: localhost:8080
+        - address: localhost:8081
+        - address: localhost:8082
 ```
 
 Now run the binary:
 
 ```bash
-$ 443d -config="/usr/local/etc/443d.toml"
+$ 443d -config="/usr/local/etc/443d.yaml"
 ```
 
 Use [supervisord] or something like that to run in production, it does not daemonize itself & logs to stderr.
@@ -67,7 +65,7 @@ Do not run as root, instead...
 
 You can make a chroot for it easily, you only need `/dev/urandom`.
 
-[TOML]: https://github.com/toml-lang/toml
+[YAML]: http://yaml.org
 [supervisord]: http://supervisord.org
 
 ## License

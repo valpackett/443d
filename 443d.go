@@ -19,8 +19,8 @@ import (
 	"github.com/myfreeweb/443d/demux"
 	"github.com/myfreeweb/443d/unixsock"
 	"github.com/myfreeweb/443d/util"
-	"github.com/naoina/toml"
 	"github.com/ryanuber/go-glob"
+	"gopkg.in/yaml.v2"
 )
 
 type HttpBackend struct {
@@ -42,7 +42,7 @@ type Config struct {
 	}
 }
 
-var confpath = flag.String("config", "/usr/local/etc/443d.toml", "path to the configuration file")
+var confpath = flag.String("config", "/usr/local/etc/443d.yaml", "path to the configuration file")
 var config Config
 
 func main() {
@@ -120,7 +120,7 @@ func readConfig() {
 	if err != nil {
 		log.Fatalf("%v :-(\n", err)
 	}
-	if err := toml.Unmarshal(buf, &config); err != nil {
+	if err := yaml.Unmarshal(buf, &config); err != nil {
 		log.Fatalf("%v :-(\n", err)
 	}
 	for ib := range config.Http {
