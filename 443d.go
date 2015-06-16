@@ -24,7 +24,8 @@ import (
 )
 
 type HttpBackend struct {
-	Paths map[string][]struct {
+	Hostnames []string
+	Paths     map[string][]struct {
 		Net     string
 		Address string
 		CutPath bool
@@ -33,13 +34,17 @@ type HttpBackend struct {
 }
 
 type Config struct {
-	Listen string
-	Cert   string
-	Key    string
-	Http   map[string]HttpBackend
-	Ssh    struct {
-		Address string
+	Tls struct {
+		Listen string
+		Cert   string
+		Key    string
+		Ssh    string
 	}
+	Http struct {
+		Listen string
+	}
+	Hosts       []HttpBackend
+	DefaultHost string
 }
 
 var confpath = flag.String("config", "/usr/local/etc/443d.yaml", "path to the configuration file")
@@ -48,27 +53,54 @@ var config Config
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	readConfig()
-	sshh := demux.SshHandler(config.Ssh.Address)
 	srv := &http.Server{
-		Addr:    config.Listen,
+		Addr:    config.Tls.Listen,
 		Handler: httpHandler(),
 	}
 	http2.ConfigureServer(srv, &http2.Server{})
 	srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
-	srv.TLSConfig.Certificates[0], _ = tls.LoadX509KeyPair(config.Cert, config.Key)
-	tcpl, err := net.Listen("tcp", srv.Addr)
-	if err != nil {
-		log.Fatalf("%v :-(\n", err)
-	}
-	dl := &demux.DemultiplexingListener{tcpl.(*net.TCPListener), sshh}
-	tlsl := tls.NewListener(dl, srv.TLSConfig)
-	for {
-		log.Printf("Starting server on tcp %v\n", srv.Addr)
-		if err = srv.Serve(tlsl); err != nil {
-			log.Printf("%v :-(\n", err)
+	srv.TLSConfig.Certificates[0], _ = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+	go func() {
+		if config.Http.Listen == "" {
+			log.Printf("No listen address for HTTP server\n")
+			return
 		}
-		time.Sleep(50 * time.Millisecond)
-		log.Printf("Restarting server\n")
+		tcpl, err := net.Listen("tcp", config.Http.Listen)
+		if err != nil {
+			log.Fatalf("%v :-(\n", err)
+		}
+		for {
+			log.Printf("Starting HTTP server on tcp %v\n", config.Http.Listen)
+			if err = srv.Serve(tcpl); err != nil {
+				log.Printf("%v :-(\n", err)
+			}
+			time.Sleep(200 * time.Millisecond)
+			log.Printf("Restarting HTTP server\n")
+		}
+	}()
+	go func() {
+		if config.Tls.Listen == "" {
+			log.Printf("No listen address for TLS server\n")
+			return
+		}
+		tcpl, err := net.Listen("tcp", config.Tls.Listen)
+		if err != nil {
+			log.Fatalf("%v :-(\n", err)
+		}
+		sshh := demux.SshHandler(config.Tls.Ssh)
+		dl := &demux.DemultiplexingListener{tcpl.(*net.TCPListener), sshh}
+		tlsl := tls.NewListener(dl, srv.TLSConfig)
+		for {
+			log.Printf("Starting TLS server on tcp %v\n", config.Tls.Listen)
+			if err = srv.Serve(tlsl); err != nil {
+				log.Printf("%v :-(\n", err)
+			}
+			time.Sleep(200 * time.Millisecond)
+			log.Printf("Restarting TLS server\n")
+		}
+	}()
+	for {
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -78,14 +110,19 @@ func httpHandler() *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Transport: transp,
 		Director: func(r *http.Request) {
-			for hostn, hostcnf := range config.Http {
-				if hostn != "*" && glob.Glob(hostn, r.URL.Host) {
-					applyHost(&hostcnf, r)
-					return
+			if r.Host == "" {
+				r.Host = config.DefaultHost
+			}
+			for hostid := range config.Hosts {
+				hostcnf := config.Hosts[hostid]
+				for hostnid := range hostcnf.Hostnames {
+					hostn := hostcnf.Hostnames[hostnid]
+					if glob.Glob(hostn, r.Host) {
+						applyHost(&hostcnf, r)
+						return
+					}
 				}
 			}
-			defhost := config.Http["*"] // TODO: check
-			applyHost(&defhost, r)
 		},
 	}
 }
@@ -123,12 +160,15 @@ func readConfig() {
 	if err := yaml.Unmarshal(buf, &config); err != nil {
 		log.Fatalf("%v :-(\n", err)
 	}
-	for ib := range config.Http {
+	for ib := range config.Hosts {
 		var order []string
-		for path := range config.Http[ib].Paths {
+		for path := range config.Hosts[ib].Paths {
 			order = append(order, path)
 		}
 		sort.Sort(util.ByLengthDesc(order))
-		config.Http[ib] = HttpBackend{Paths: config.Http[ib].Paths, PathOrder: order}
+		config.Hosts[ib].PathOrder = order
+	}
+	if config.DefaultHost == "" {
+		config.DefaultHost = "localhost"
 	}
 }

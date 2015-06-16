@@ -28,16 +28,18 @@ Here's an example:
 ```yaml
 # This is an example configuration for 443d.
 
-listen: 0.0.0.0:443
-cert: /etc/certs/server.crt
-key: /etc/certs/server.key
+tls: # 443d will serve TLS there
+  listen: 0.0.0.0:443 # IPv6 will magically work too
+  cert: /etc/certs/server.crt
+  key: /etc/certs/server.key
+  ssh: 127.0.0.1:22 # When 443d sees an SSH connection instead of TLS, forward there
 
-ssh:
-  address: 127.0.0.1:22
+http: # 443d will serve non-TLS HTTP there (for debugging or to provide access through a Tor hidden service)
+  listen: 127.0.0.1:8080
 
-http:
-  "*": # host glob pattern (virtual hosts basically)
-    paths: # URL path prefix matching, longer prefixes are matched first
+hosts: # 443d will proxy to the following virtual hosts
+  - hostnames: ["*.example.com", "example.com"] # Hostname matching (supports glob patterns)
+    paths: # URL path prefix matching for this hostname, longer prefixes are matched first
       /git:
         - type: unix # default is http
           address: /var/run/gitweb/gitweb.sock # format depends on the type
@@ -47,6 +49,8 @@ http:
         - address: localhost:8080
         - address: localhost:8081
         - address: localhost:8082
+
+defaulthost: example.com # Where to proxy when no Host header is sent
 ```
 
 Now run the binary:
