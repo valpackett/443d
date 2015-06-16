@@ -28,7 +28,7 @@ type HttpBackend struct {
 	Paths     map[string][]struct {
 		Net     string
 		Address string
-		CutPath bool
+		CutPath bool `yaml:"cut_path"`
 	}
 	PathOrder []string
 }
