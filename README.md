@@ -1,8 +1,13 @@
 # 443d [![ISC License](https://img.shields.io/badge/license-ISC-red.svg?style=flat)](https://tldrlegal.com/license/-isc-license)
 
-A reverse proxy with [HTTP/2] support & TLS/SSH demultiplexing.
+This is
 
-Basically, like [nghttpx] + [sslh], but in [Go].
+- a reverse HTTP(S) proxy
+- written in [Go]
+- that supports [HTTP/2], like [nghttpx]
+- and does TLS/SSH demultiplexing, like [sslh].
+
+Intended for personal websites.
 
 [HTTP/2]: https://http2.github.io
 [nghttpx]: https://nghttp2.org/documentation/nghttpx.1.html
@@ -11,7 +16,7 @@ Basically, like [nghttpx] + [sslh], but in [Go].
 
 ## Installation
 
-Binaries will be available soon.
+Binaries might be available someday.
 
 If you have a Go setup:
 
