@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -39,6 +40,10 @@ type Config struct {
 		Cert   string
 		Key    string
 		Ssh    string
+		Hsts   struct {
+			Seconds    int
+			Subdomains bool
+		}
 	}
 	Http struct {
 		Listen string
@@ -49,51 +54,63 @@ type Config struct {
 
 var confpath = flag.String("config", "/usr/local/etc/443d.yaml", "path to the configuration file")
 var config Config
+var hstsHeader string
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	readConfig()
-	srv := &http.Server{
-		Addr:    config.Tls.Listen,
-		Handler: httpHandler(),
-	}
-	http2.ConfigureServer(srv, &http2.Server{})
-	srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
-	srv.TLSConfig.Certificates[0], _ = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+	handler := httpHandler()
 	go func() {
-		tcpl, err := net.Listen("tcp", config.Http.Listen)
+		addr := config.Http.Listen
+		if addr == "" {
+			log.Printf("No listen address for the HTTP server \n")
+			return
+		}
+		srv := &http.Server{Addr: addr, Handler: handler}
+		tcpl, err := net.Listen("tcp", addr)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
 		}
-		serve("HTTP server", config.Http.Listen, srv, tcpl)
+		serve("HTTP server", srv, tcpl)
 	}()
 	go func() {
-		tcpl, err := net.Listen("tcp", config.Tls.Listen)
+		addr := config.Tls.Listen
+		if addr == "" {
+			log.Printf("No listen address for the TLS server \n")
+			return
+		}
+		secHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if config.Tls.Hsts.Seconds != 0 {
+				w.Header().Add("Strict-Transport-Security", hstsHeader)
+			}
+			handler.ServeHTTP(w, r)
+		})
+		srv := &http.Server{Addr: addr, Handler: secHandler}
+		http2.ConfigureServer(srv, &http2.Server{})
+		srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
+		srv.TLSConfig.Certificates[0], _ = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+		tcpl, err := net.Listen("tcp", addr)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
 		}
 		sshh := demux.SshHandler(config.Tls.Ssh)
 		dl := &demux.DemultiplexingListener{tcpl.(*net.TCPListener), sshh}
 		tlsl := tls.NewListener(dl, srv.TLSConfig)
-		serve("TLS server", config.Tls.Listen, srv, tlsl)
+		serve("TLS server", srv, tlsl)
 	}()
 	for {
 		time.Sleep(500 * time.Millisecond)
 	}
 }
 
-func serve(name string, addr string, srv *http.Server, listener net.Listener) {
-	if addr == "" {
-		log.Printf("No listen address for " + name + " \n")
-		return
-	}
+func serve(name string, srv *http.Server, listener net.Listener) {
 	for {
-		log.Printf("Starting "+name+" on tcp %v\n", config.Tls.Listen)
+		log.Printf("Starting the "+name+" on tcp %v\n", srv.Addr)
 		if err := srv.Serve(listener); err != nil {
 			log.Printf(name+" error: %v :-(\n", err)
 		}
 		time.Sleep(200 * time.Millisecond)
-		log.Printf("Restarting " + name + "\n")
+		log.Printf("Restarting the " + name + "\n")
 	}
 }
 
@@ -163,5 +180,11 @@ func readConfig() {
 	}
 	if config.DefaultHost == "" {
 		config.DefaultHost = "localhost"
+	}
+	if config.Tls.Hsts.Seconds != 0 {
+		hstsHeader = fmt.Sprintf("max-age=%d", config.Tls.Hsts.Seconds)
+		if config.Tls.Hsts.Subdomains {
+			hstsHeader += "; includeSubdomains"
+		}
 	}
 }

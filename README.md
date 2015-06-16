@@ -35,9 +35,12 @@ Here's an example:
 
 tls: # 443d will serve TLS there
   listen: 0.0.0.0:443 # IPv6 will magically work too
+  ssh: 127.0.0.1:22 # When 443d sees an SSH connection instead of TLS, forward there
   cert: /etc/certs/server.crt
   key: /etc/certs/server.key
-  ssh: 127.0.0.1:22 # When 443d sees an SSH connection instead of TLS, forward there
+  hsts: # Add the Strict-Transport-Security header
+    seconds: 31536000 # max-age
+    subdomains: true # add ; includeSubdomains
 
 http: # 443d will serve non-TLS HTTP there (for debugging or to provide access through a Tor hidden service)
   listen: 127.0.0.1:8080
