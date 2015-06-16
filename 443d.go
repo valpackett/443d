@@ -48,9 +48,9 @@ type Config struct {
 			Subdomains bool
 		}
 		Hpkp struct {
-			Seconds        int
-			Subdomains     bool
-			AdditionalKeys []string
+			Seconds    int
+			Subdomains bool
+			BackupKeys []string `yaml:"backup_keys"`
 		}
 	}
 	Http struct {
@@ -214,13 +214,13 @@ func readConfig() {
 			}
 		}
 		if config.Tls.Hpkp.Seconds != 0 {
-			if len(config.Tls.Hpkp.AdditionalKeys) < 1 {
-				log.Printf("You should add a backup key to HPKP additionalkeys!\n")
+			if len(config.Tls.Hpkp.BackupKeys) < 1 {
+				log.Printf("You should add a backup key to HPKP backup_keys!\n")
 			}
 			hash := sha256.Sum256(tlsKeyPair.Leaf.RawSubjectPublicKeyInfo)
 			hpkpHeader = fmt.Sprintf("pin-sha256=\"%s\"", base64.StdEncoding.EncodeToString(hash[0:]))
-			for k := range config.Tls.Hpkp.AdditionalKeys {
-				hpkpHeader += fmt.Sprintf("; pin-sha256=\"%s\"", config.Tls.Hpkp.AdditionalKeys[k])
+			for k := range config.Tls.Hpkp.BackupKeys {
+				hpkpHeader += fmt.Sprintf("; pin-sha256=\"%s\"", config.Tls.Hpkp.BackupKeys[k])
 			}
 			hpkpHeader += fmt.Sprintf("; max-age=%d", config.Tls.Hpkp.Seconds)
 			if config.Tls.Hpkp.Subdomains {

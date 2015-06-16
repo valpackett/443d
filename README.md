@@ -44,7 +44,7 @@ tls: # 443d will serve TLS there
   hpkp: # Add the Public-Key-Pinning header
     seconds: 5184000 # max-age
     subdomains: true # includeSubdomains
-    additionalkeys: # You must have at least one hash of a backup key here!
+    backup_keys: # You must have at least one hash here!
       - aaaogjIWd0KuaCsQa9Zon7aTON0JapN1fonHra2bdGk=
 
 http: # 443d will serve non-TLS HTTP there (for debugging or to provide access through a Tor hidden service)
