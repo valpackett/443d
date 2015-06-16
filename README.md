@@ -38,7 +38,8 @@ http: # 443d will serve non-TLS HTTP there (for debugging or to provide access t
   listen: 127.0.0.1:8080
 
 hosts: # 443d will proxy to the following virtual hosts
-  - hostnames: ["*.example.com", "example.com"] # Hostname matching (supports glob patterns)
+  - hostnames: ["*.example.com", "example.com", "example.com:*"] # Host header matching
+      # (supports glob patterns; if there's a port in the header, it's not removed automatically)
     paths: # URL path prefix matching for this hostname, longer prefixes are matched first
       /git:
         - type: unix # default is http

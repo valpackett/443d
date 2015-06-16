@@ -61,28 +61,13 @@ func main() {
 	srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
 	srv.TLSConfig.Certificates[0], _ = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
 	go func() {
-		if config.Http.Listen == "" {
-			log.Printf("No listen address for HTTP server\n")
-			return
-		}
 		tcpl, err := net.Listen("tcp", config.Http.Listen)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
 		}
-		for {
-			log.Printf("Starting HTTP server on tcp %v\n", config.Http.Listen)
-			if err = srv.Serve(tcpl); err != nil {
-				log.Printf("%v :-(\n", err)
-			}
-			time.Sleep(200 * time.Millisecond)
-			log.Printf("Restarting HTTP server\n")
-		}
+		serve("HTTP server", config.Http.Listen, srv, tcpl)
 	}()
 	go func() {
-		if config.Tls.Listen == "" {
-			log.Printf("No listen address for TLS server\n")
-			return
-		}
 		tcpl, err := net.Listen("tcp", config.Tls.Listen)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
@@ -90,17 +75,25 @@ func main() {
 		sshh := demux.SshHandler(config.Tls.Ssh)
 		dl := &demux.DemultiplexingListener{tcpl.(*net.TCPListener), sshh}
 		tlsl := tls.NewListener(dl, srv.TLSConfig)
-		for {
-			log.Printf("Starting TLS server on tcp %v\n", config.Tls.Listen)
-			if err = srv.Serve(tlsl); err != nil {
-				log.Printf("%v :-(\n", err)
-			}
-			time.Sleep(200 * time.Millisecond)
-			log.Printf("Restarting TLS server\n")
-		}
+		serve("TLS server", config.Tls.Listen, srv, tlsl)
 	}()
 	for {
 		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func serve(name string, addr string, srv *http.Server, listener net.Listener) {
+	if addr == "" {
+		log.Printf("No listen address for " + name + " \n")
+		return
+	}
+	for {
+		log.Printf("Starting "+name+" on tcp %v\n", config.Tls.Listen)
+		if err := srv.Serve(listener); err != nil {
+			log.Printf(name+" error: %v :-(\n", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+		log.Printf("Restarting " + name + "\n")
 	}
 }
 
