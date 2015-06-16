@@ -40,7 +40,12 @@ tls: # 443d will serve TLS there
   key: /etc/certs/server.key
   hsts: # Add the Strict-Transport-Security header
     seconds: 31536000 # max-age
-    subdomains: true # add ; includeSubdomains
+    subdomains: true # includeSubdomains
+  hpkp: # Add the Public-Key-Pinning header
+    seconds: 5184000 # max-age
+    subdomains: true # includeSubdomains
+    additionalkeys: # You must have at least one hash of a backup key here!
+      - aaaogjIWd0KuaCsQa9Zon7aTON0JapN1fonHra2bdGk=
 
 http: # 443d will serve non-TLS HTTP there (for debugging or to provide access through a Tor hidden service)
   listen: 127.0.0.1:8080

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -44,6 +47,11 @@ type Config struct {
 			Seconds    int
 			Subdomains bool
 		}
+		Hpkp struct {
+			Seconds        int
+			Subdomains     bool
+			AdditionalKeys []string
+		}
 	}
 	Http struct {
 		Listen string
@@ -54,7 +62,9 @@ type Config struct {
 
 var confpath = flag.String("config", "/usr/local/etc/443d.yaml", "path to the configuration file")
 var config Config
+var tlsKeyPair tls.Certificate
 var hstsHeader string
+var hpkpHeader string
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -79,16 +89,23 @@ func main() {
 			log.Printf("No listen address for the TLS server \n")
 			return
 		}
+		if config.Tls.Cert == "" && config.Tls.Key == "" {
+			log.Printf("No keypair for the TLS server \n")
+			return
+		}
 		secHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if config.Tls.Hsts.Seconds != 0 {
 				w.Header().Add("Strict-Transport-Security", hstsHeader)
+			}
+			if config.Tls.Hpkp.Seconds != 0 {
+				w.Header().Add("Public-Key-Pins", hpkpHeader)
 			}
 			handler.ServeHTTP(w, r)
 		})
 		srv := &http.Server{Addr: addr, Handler: secHandler}
 		http2.ConfigureServer(srv, &http2.Server{})
 		srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
-		srv.TLSConfig.Certificates[0], _ = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+		srv.TLSConfig.Certificates[0] = tlsKeyPair
 		tcpl, err := net.Listen("tcp", addr)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
@@ -181,10 +198,34 @@ func readConfig() {
 	if config.DefaultHost == "" {
 		config.DefaultHost = "localhost"
 	}
-	if config.Tls.Hsts.Seconds != 0 {
-		hstsHeader = fmt.Sprintf("max-age=%d", config.Tls.Hsts.Seconds)
-		if config.Tls.Hsts.Subdomains {
-			hstsHeader += "; includeSubdomains"
+	if config.Tls.Cert != "" && config.Tls.Key != "" {
+		tlsKeyPair, err = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+		if err != nil {
+			log.Fatalf("Error reading TLS key/cert: %v :-(", err)
+		}
+		tlsKeyPair.Leaf, err = x509.ParseCertificate(tlsKeyPair.Certificate[len(tlsKeyPair.Certificate)-1])
+		if err != nil {
+			log.Fatalf("Error parsing TLS cert: %v :-(", err)
+		}
+		if config.Tls.Hsts.Seconds != 0 {
+			hstsHeader = fmt.Sprintf("max-age=%d", config.Tls.Hsts.Seconds)
+			if config.Tls.Hsts.Subdomains {
+				hstsHeader += "; includeSubdomains"
+			}
+		}
+		if config.Tls.Hpkp.Seconds != 0 {
+			if len(config.Tls.Hpkp.AdditionalKeys) < 1 {
+				log.Printf("You should add a backup key to HPKP additionalkeys!\n")
+			}
+			hash := sha256.Sum256(tlsKeyPair.Leaf.RawSubjectPublicKeyInfo)
+			hpkpHeader = fmt.Sprintf("pin-sha256=\"%s\"", base64.StdEncoding.EncodeToString(hash[0:]))
+			for k := range config.Tls.Hpkp.AdditionalKeys {
+				hpkpHeader += fmt.Sprintf("; pin-sha256=\"%s\"", config.Tls.Hpkp.AdditionalKeys[k])
+			}
+			hpkpHeader += fmt.Sprintf("; max-age=%d", config.Tls.Hpkp.Seconds)
+			if config.Tls.Hpkp.Subdomains {
+				hpkpHeader += "; includeSubdomains"
+			}
 		}
 	}
 }
