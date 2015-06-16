@@ -4,15 +4,28 @@ This is
 
 - a reverse HTTP(S) proxy
 - written in [Go]
-- that supports [HTTP/2], like [nghttpx]
+- that proxies to HTTP/1.1 via TCP or UNIX Domain Sockets,
+- supports [HTTP/2] over TLS, like [nghttpx]
 - and does TLS/SSH demultiplexing, like [sslh].
 
-Intended for personal websites.
+Basically, it's an [nginx] replacement for websites that don't need advanced load balancing or request modification, but would like good security, easy configuration and deployment (single static binary, thanks to Go).
 
+It's rather small and simple, so it has the following limitations:
+
+- no support for different certificates per domain via SNI (TODO?);
+- no websockets (TODO?);
+- no configuration reloading;
+- no markdown, no built-in git pulling, no basic auth, etc. (by design -- try [Caddy] instead).
+
+Also, it uses Go's TLS library, which currently doesn't support the chacha20-poly1305 ciphersuite.
+On the other hand, it's a modern, clean library, not a [pile of legacy C code](https://en.wikipedia.org/wiki/OpenSSL) (not even [a cleaned-up pile of legacy C code](http://www.libressl.org/)).
+
+[Go]: https://golang.org
 [HTTP/2]: https://http2.github.io
 [nghttpx]: https://nghttp2.org/documentation/nghttpx.1.html
 [sslh]: https://github.com/yrutschle/sslh
-[Go]: https://golang.org
+[nginx]: http://nginx.org 
+[Caddy]: https://caddyserver.com
 
 ## Installation
 
@@ -31,11 +44,9 @@ The syntax is [YAML].
 Here's an example:
 
 ```yaml
-# This is an example configuration for 443d.
-
 tls: # 443d will serve TLS there
   listen: 0.0.0.0:443 # IPv6 will magically work too
-  ssh: 127.0.0.1:22 # When 443d sees an SSH connection instead of TLS, forward there
+  ssh: 127.0.0.1:22 # When 443d sees an SSH connection instead of TLS, proxy there
   cert: /etc/certs/server.crt
   key: /etc/certs/server.key
   hsts: # Add the Strict-Transport-Security header
@@ -47,7 +58,8 @@ tls: # 443d will serve TLS there
     backup_keys: # You must have at least one hash here!
       - aaaogjIWd0KuaCsQa9Zon7aTON0JapN1fonHra2bdGk=
 
-http: # 443d will serve non-TLS HTTP there (for debugging or to provide access through a Tor hidden service)
+http: # 443d will serve non-TLS HTTP there
+  # (for debugging or to provide access through a Tor hidden service)
   listen: 127.0.0.1:8080
 
 hosts: # 443d will proxy to the following virtual hosts
