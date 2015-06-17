@@ -66,7 +66,7 @@ hosts: # 443d will proxy to the following virtual hosts
   - hostnames: ["*.example.com", "example.com", "example.com:*"] # Host header matching
       # (supports glob patterns; if there's a port in the header, it's not removed automatically)
     paths: # URL path prefix matching for this hostname, longer prefixes are matched first
-      /git:
+      /git/: # The ending slash is important!!!
         - type: unix # default is http
           address: /var/run/gitweb/gitweb.sock # format depends on the type
           cut_path: true # means the backend will see /git as /, /git/path as /path, etc. default is false
