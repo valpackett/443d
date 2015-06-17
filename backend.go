@@ -21,7 +21,6 @@ type HttpBackend struct {
 	Handler   http.Handler
 	Hostnames []string
 	Paths     map[string][]PathBackend
-	PathOrder []string
 }
 
 func proxyHandler(backend *PathBackend) http.Handler {

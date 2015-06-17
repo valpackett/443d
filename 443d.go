@@ -13,12 +13,10 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"sort"
 	"time"
 
 	"github.com/bradfitz/http2"
 	"github.com/myfreeweb/443d/demux"
-	"github.com/myfreeweb/443d/util"
 	"github.com/ryanuber/go-glob"
 	"gopkg.in/yaml.v2"
 )
@@ -149,12 +147,6 @@ func readConfig() {
 	}
 	for ib := range config.Hosts {
 		config.Hosts[ib].Initialize()
-		var order []string
-		for path := range config.Hosts[ib].Paths {
-			order = append(order, path)
-		}
-		sort.Sort(util.ByLengthDesc(order))
-		config.Hosts[ib].PathOrder = order
 	}
 }
 
