@@ -52,18 +52,33 @@ var tlsKeyPair tls.Certificate
 var hstsHeader string
 var hpkpHeader string
 
+var httpHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	if r.Host == "" {
+		r.Host = config.DefaultHost
+	}
+	for hostid := range config.Hosts {
+		hostcnf := config.Hosts[hostid]
+		for hostnid := range hostcnf.Hostnames {
+			hostn := hostcnf.Hostnames[hostnid]
+			if glob.Glob(hostn, r.Host) {
+				hostcnf.Handler.ServeHTTP(w, r)
+				return
+			}
+		}
+	}
+})
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	readConfig()
 	processConfig()
-	handler := httpHandler()
 	go func() {
 		addr := config.Http.Listen
 		if addr == "" {
 			log.Printf("No listen address for the HTTP server \n")
 			return
 		}
-		srv := &http.Server{Addr: addr, Handler: handler}
+		srv := &http.Server{Addr: addr, Handler: httpHandler}
 		tcpl, err := net.Listen("tcp", addr)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
@@ -87,7 +102,7 @@ func main() {
 			if config.Tls.Hpkp.Seconds != 0 {
 				w.Header().Add("Public-Key-Pins", hpkpHeader)
 			}
-			handler.ServeHTTP(w, r)
+			httpHandler.ServeHTTP(w, r)
 		})
 		srv := &http.Server{Addr: addr, Handler: secHandler}
 		http2.ConfigureServer(srv, &http2.Server{})
@@ -116,24 +131,6 @@ func serve(name string, srv *http.Server, listener net.Listener) {
 		time.Sleep(200 * time.Millisecond)
 		log.Printf("Restarting the " + name + "\n")
 	}
-}
-
-func httpHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host == "" {
-			r.Host = config.DefaultHost
-		}
-		for hostid := range config.Hosts {
-			hostcnf := config.Hosts[hostid]
-			for hostnid := range hostcnf.Hostnames {
-				hostn := hostcnf.Hostnames[hostnid]
-				if glob.Glob(hostn, r.Host) {
-					hostcnf.Handler.ServeHTTP(w, r)
-					return
-				}
-			}
-		}
-	})
 }
 
 func readConfig() {
