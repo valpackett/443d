@@ -23,24 +23,28 @@ type HttpBackend struct {
 	Paths     map[string][]PathBackend
 }
 
-func proxyHandler(backend *PathBackend) http.Handler {
+func proxyHandler(p *PathBackend) http.Handler {
 	transp := &http.Transport{MaxIdleConnsPerHost: 100}
 	transp.RegisterProtocol("unix", unixsock.NewUnixTransport())
 	var h http.Handler
 	h = &httputil.ReverseProxy{
 		Transport: transp,
 		Director: func(r *http.Request) {
-			r.URL.Scheme = backend.Type
-			r.URL.Host = backend.Address
-			if backend.CutPath {
+			r.URL.Scheme = p.Type
+			r.URL.Host = p.Address
+			if p.CutPath {
 				r.URL.Path = "/" + r.URL.Path // WTF, StripPrefix
 			}
 		},
 	}
-	if backend.CutPath {
-		h = http.StripPrefix(backend.Path, h)
+	if p.CutPath {
+		h = http.StripPrefix(p.Path, h)
 	}
 	return h
+}
+
+func fileHandler(p *PathBackend) http.Handler {
+	return http.StripPrefix(p.Path, http.FileServer(http.Dir(p.Address)))
 }
 
 func (p *PathBackend) Initialize() {
@@ -49,6 +53,8 @@ func (p *PathBackend) Initialize() {
 	}
 	if p.Type == "unix" || p.Type == "http" {
 		p.Handler = proxyHandler(p)
+	} else if p.Type == "file" {
+		p.Handler = fileHandler(p)
 	} else {
 		log.Fatalf("Invalid type '%s' for path '%s'", p.Type, p.Path)
 	}
