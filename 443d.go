@@ -30,7 +30,7 @@ import (
 type HttpBackend struct {
 	Hostnames []string
 	Paths     map[string][]struct {
-		Net     string
+		Type    string
 		Address string
 		CutPath bool `yaml:"cut_path"`
 	}
@@ -159,10 +159,10 @@ func applyHost(hostcnf *HttpBackend, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, pathprefix) {
 			backends := hostcnf.Paths[pathprefix]
 			backend := backends[rand.Intn(len(backends))]
-			if backend.Net == "" {
+			if backend.Type == "" {
 				r.URL.Scheme = "http"
 			} else {
-				r.URL.Scheme = backend.Net
+				r.URL.Scheme = backend.Type
 			}
 			r.URL.Host = backend.Address
 			if backend.CutPath {
