@@ -13,10 +13,10 @@ Basically, it's an [nginx] replacement for websites that don't need advanced loa
 
 It's rather small and simple, so it has the following limitations:
 
-- no support for different certificates per domain via SNI (TODO?);
+- no support for different certificates per domain via SNI (TODO [go-vhost](https://github.com/inconshreveable/go-vhost));
 - no websockets (TODO?);
 - no configuration reloading;
-- no markdown, no built-in git pulling, no basic auth, etc. (by design -- try [Caddy] instead).
+- no markdown, no templating, no built-in git pulling, no basic auth, etc. (by design -- try [Caddy] instead).
 
 Also, it uses Go's TLS library, which currently doesn't support the chacha20-poly1305 ciphersuite.
 On the other hand, it's a modern, clean library, not a [pile of legacy C code](https://en.wikipedia.org/wiki/OpenSSL) (not even [a cleaned-up pile of legacy C code](http://www.libressl.org/)).
