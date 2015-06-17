@@ -9,33 +9,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"runtime"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/bradfitz/http2"
 	"github.com/myfreeweb/443d/demux"
-	"github.com/myfreeweb/443d/unixsock"
 	"github.com/myfreeweb/443d/util"
 	"github.com/ryanuber/go-glob"
 	"gopkg.in/yaml.v2"
 )
-
-type HttpBackend struct {
-	Hostnames []string
-	Paths     map[string][]struct {
-		Type    string
-		Address string
-		CutPath bool `yaml:"cut_path"`
-	}
-	PathOrder []string
-}
 
 type Config struct {
 	Tls struct {
@@ -69,6 +55,7 @@ var hpkpHeader string
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	readConfig()
+	processConfig()
 	handler := httpHandler()
 	go func() {
 		addr := config.Http.Listen
@@ -131,46 +118,22 @@ func serve(name string, srv *http.Server, listener net.Listener) {
 	}
 }
 
-func httpHandler() *httputil.ReverseProxy {
-	transp := &http.Transport{MaxIdleConnsPerHost: 100}
-	transp.RegisterProtocol("unix", unixsock.NewUnixTransport())
-	return &httputil.ReverseProxy{
-		Transport: transp,
-		Director: func(r *http.Request) {
-			if r.Host == "" {
-				r.Host = config.DefaultHost
-			}
-			for hostid := range config.Hosts {
-				hostcnf := config.Hosts[hostid]
-				for hostnid := range hostcnf.Hostnames {
-					hostn := hostcnf.Hostnames[hostnid]
-					if glob.Glob(hostn, r.Host) {
-						applyHost(&hostcnf, r)
-						return
-					}
+func httpHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host == "" {
+			r.Host = config.DefaultHost
+		}
+		for hostid := range config.Hosts {
+			hostcnf := config.Hosts[hostid]
+			for hostnid := range hostcnf.Hostnames {
+				hostn := hostcnf.Hostnames[hostnid]
+				if glob.Glob(hostn, r.Host) {
+					hostcnf.Handler.ServeHTTP(w, r)
+					return
 				}
 			}
-		},
-	}
-}
-
-func applyHost(hostcnf *HttpBackend, r *http.Request) {
-	for _, pathprefix := range hostcnf.PathOrder {
-		if strings.HasPrefix(r.URL.Path, pathprefix) {
-			backends := hostcnf.Paths[pathprefix]
-			backend := backends[rand.Intn(len(backends))]
-			if backend.Type == "" {
-				r.URL.Scheme = "http"
-			} else {
-				r.URL.Scheme = backend.Type
-			}
-			r.URL.Host = backend.Address
-			if backend.CutPath {
-				r.URL.Path = strings.TrimPrefix(r.URL.Path, pathprefix)
-			}
-			return
 		}
-	}
+	})
 }
 
 func readConfig() {
@@ -188,6 +151,7 @@ func readConfig() {
 		log.Fatalf("%v :-(\n", err)
 	}
 	for ib := range config.Hosts {
+		config.Hosts[ib].Initialize()
 		var order []string
 		for path := range config.Hosts[ib].Paths {
 			order = append(order, path)
@@ -195,11 +159,14 @@ func readConfig() {
 		sort.Sort(util.ByLengthDesc(order))
 		config.Hosts[ib].PathOrder = order
 	}
+}
+
+func processConfig() {
 	if config.DefaultHost == "" {
 		config.DefaultHost = "localhost"
 	}
 	if config.Tls.Cert != "" && config.Tls.Key != "" {
-		tlsKeyPair, err = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+		tlsKeyPair, err := tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
 		if err != nil {
 			log.Fatalf("Error reading TLS key/cert: %v :-(", err)
 		}
