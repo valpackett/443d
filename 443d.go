@@ -104,8 +104,7 @@ func main() {
 		})
 		srv := &http.Server{Addr: addr, Handler: secHandler}
 		http2.ConfigureServer(srv, &http2.Server{})
-		srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
-		srv.TLSConfig.Certificates[0] = tlsKeyPair
+		srv.TLSConfig.Certificates = []tls.Certificate{tlsKeyPair}
 		tcpl, err := net.Listen("tcp", addr)
 		if err != nil {
 			log.Fatalf("%v :-(\n", err)
@@ -155,7 +154,8 @@ func processConfig() {
 		config.DefaultHost = "localhost"
 	}
 	if config.Tls.Cert != "" && config.Tls.Key != "" {
-		tlsKeyPair, err := tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
+		var err error
+		tlsKeyPair, err = tls.LoadX509KeyPair(config.Tls.Cert, config.Tls.Key)
 		if err != nil {
 			log.Fatalf("Error reading TLS key/cert: %v :-(", err)
 		}
