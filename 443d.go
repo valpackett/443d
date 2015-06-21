@@ -40,6 +40,9 @@ type Config struct {
 	Http struct {
 		Listen string
 	}
+	Redirector struct {
+		Listen string
+	}
 	Hosts       []HttpBackend
 	DefaultHost string
 }
@@ -66,10 +69,27 @@ var httpHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *h
 	}
 })
 
+var redirHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
+})
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	readConfig()
 	processConfig()
+	go func() {
+		addr := config.Redirector.Listen
+		if addr == "" {
+			log.Printf("No listen address for the Redirector server \n")
+			return
+		}
+		srv := &http.Server{Addr: addr, Handler: redirHandler}
+		tcpl, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Fatalf("%v :-(\n", err)
+		}
+		serve("Redirector server", srv, tcpl)
+	}()
 	go func() {
 		addr := config.Http.Listen
 		if addr == "" {
