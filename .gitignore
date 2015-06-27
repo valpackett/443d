@@ -2,3 +2,4 @@ server.crt
 server.key
 test.yaml
 443d
+443d_freebsd_amd64

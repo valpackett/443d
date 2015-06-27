@@ -28,7 +28,7 @@ type DemultiplexingListener struct {
 	SshHandler func(net.Conn)
 }
 
-func (dl *DemultiplexingListener) Accept() (net.Conn, error) {
+func (dl DemultiplexingListener) Accept() (net.Conn, error) {
 	c, err := dl.Listener.AcceptTCP()
 	if err != nil {
 		return nil, err
@@ -51,8 +51,8 @@ func (dl *DemultiplexingListener) Accept() (net.Conn, error) {
 	}
 }
 
-func (dl *DemultiplexingListener) Close() error   { return dl.Listener.Close() }
-func (dl *DemultiplexingListener) Addr() net.Addr { return dl.Listener.Addr() }
+func (dl DemultiplexingListener) Close() error   { return dl.Listener.Close() }
+func (dl DemultiplexingListener) Addr() net.Addr { return dl.Listener.Addr() }
 
 func SshHandler(host string) func(inc net.Conn) {
 	return func(inc net.Conn) {

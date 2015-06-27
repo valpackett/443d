@@ -13,10 +13,10 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/bradfitz/http2"
 	"github.com/myfreeweb/443d/demux"
+	"github.com/myfreeweb/443d/keepalive"
 	"github.com/ryanuber/go-glob"
 	"gopkg.in/yaml.v2"
 )
@@ -77,6 +77,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	readConfig()
 	processConfig()
+	errc := make(chan error, 1)
 	go func() {
 		addr := config.Redirector.Listen
 		if addr == "" {
@@ -84,11 +85,9 @@ func main() {
 			return
 		}
 		srv := &http.Server{Addr: addr, Handler: redirHandler}
-		tcpl, err := net.Listen("tcp", addr)
-		if err != nil {
-			log.Fatalf("%v :-(\n", err)
-		}
-		serve("Redirector server", srv, tcpl)
+		tcpl := listen(addr)
+		kal := keepalive.KeepAliveListener{tcpl.(*net.TCPListener)}
+		errc <- serve("Redirector server", srv, kal)
 	}()
 	go func() {
 		addr := config.Http.Listen
@@ -97,11 +96,9 @@ func main() {
 			return
 		}
 		srv := &http.Server{Addr: addr, Handler: httpHandler}
-		tcpl, err := net.Listen("tcp", addr)
-		if err != nil {
-			log.Fatalf("%v :-(\n", err)
-		}
-		serve("HTTP server", srv, tcpl)
+		tcpl := listen(addr)
+		kal := keepalive.KeepAliveListener{tcpl.(*net.TCPListener)}
+		errc <- serve("HTTP server", srv, kal)
 	}()
 	go func() {
 		addr := config.Tls.Listen
@@ -125,29 +122,26 @@ func main() {
 		srv := &http.Server{Addr: addr, Handler: secHandler}
 		http2.ConfigureServer(srv, &http2.Server{})
 		srv.TLSConfig.Certificates = []tls.Certificate{tlsKeyPair}
-		tcpl, err := net.Listen("tcp", addr)
-		if err != nil {
-			log.Fatalf("%v :-(\n", err)
-		}
+		tcpl := listen(addr)
 		sshh := demux.SshHandler(config.Tls.Ssh)
-		dl := &demux.DemultiplexingListener{tcpl.(*net.TCPListener), sshh}
+		dl := demux.DemultiplexingListener{tcpl.(*net.TCPListener), sshh}
 		tlsl := tls.NewListener(dl, srv.TLSConfig)
-		serve("TLS server", srv, tlsl)
+		errc <- serve("TLS server", srv, tlsl)
 	}()
-	for {
-		time.Sleep(500 * time.Millisecond)
-	}
+	log.Fatalf("error: %v :-(\n", <-errc)
 }
 
-func serve(name string, srv *http.Server, listener net.Listener) {
-	for {
-		log.Printf("Starting the "+name+" on tcp %v\n", srv.Addr)
-		if err := srv.Serve(listener); err != nil {
-			log.Printf(name+" error: %v :-(\n", err)
-		}
-		time.Sleep(200 * time.Millisecond)
-		log.Printf("Restarting the " + name + "\n")
+func listen(addr string) net.Listener {
+	tcpl, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("%v :-(\n", err)
 	}
+	return tcpl
+}
+
+func serve(name string, srv *http.Server, listener net.Listener) error {
+	log.Printf("Starting the "+name+" on tcp %v\n", srv.Addr)
+	return srv.Serve(listener)
 }
 
 func readConfig() {

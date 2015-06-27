@@ -46,7 +46,7 @@ Here's an example:
 
 ```yaml
 tls: # 443d will serve TLS there
-  listen: 0.0.0.0:443 # IPv6 will magically work too
+  listen: :443 # IPv6 will magically work too
   ssh: 127.0.0.1:22 # When 443d sees an SSH connection instead of TLS, proxy there
   cert: /etc/certs/server.crt
   key: /etc/certs/server.key
@@ -64,7 +64,7 @@ http: # 443d will serve non-TLS HTTP there
   listen: 127.0.0.1:8080
 
 redirector: # 443d will 301 redirects to HTTPS there
-  listen: 127.0.0.1:80
+  listen: :80
 
 hosts: # 443d will proxy to the following virtual hosts
   - hostnames: ["*.example.com", "example.com", "example.com:*"] # Host header matching
