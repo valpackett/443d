@@ -53,7 +53,7 @@ tls: # 443d will serve TLS there
   hsts: # Add the Strict-Transport-Security header
     seconds: 31536000 # max-age
     subdomains: true # includeSubdomains
-  hpkp: # Add the Public-Key-Pinning header
+  hpkp: # Add the Public-Key-Pins header
     seconds: 5184000 # max-age
     subdomains: true # includeSubdomains
     backup_keys: # You must have at least one hash here!
