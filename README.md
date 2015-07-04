@@ -63,7 +63,7 @@ http: # 443d will serve non-TLS HTTP there
   # (for debugging or to provide access through a Tor hidden service)
   listen: 127.0.0.1:8080
 
-redirector: # 443d will 301 redirects to HTTPS there
+redirector: # 443d will serve 301 redirects to HTTPS there
   listen: :80
 
 hosts: # 443d will proxy to the following virtual hosts
