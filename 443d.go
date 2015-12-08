@@ -14,10 +14,10 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/bradfitz/http2"
 	"github.com/myfreeweb/443d/demux"
 	"github.com/myfreeweb/443d/keepalive"
 	"github.com/ryanuber/go-glob"
+	"golang.org/x/net/http2"
 	"gopkg.in/yaml.v2"
 )
 

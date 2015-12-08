@@ -24,7 +24,7 @@ type HttpBackend struct {
 }
 
 func proxyHandler(p *PathBackend) http.Handler {
-	transp := &http.Transport{MaxIdleConnsPerHost: 100}
+	transp := &http.Transport{MaxIdleConnsPerHost: 100, DisableKeepAlives: true}
 	transp.RegisterProtocol("unix", unixsock.NewUnixTransport())
 	var h http.Handler
 	h = &httputil.ReverseProxy{
