@@ -5,6 +5,7 @@ This is
 - a reverse HTTP(S) proxy
 - written in [Go]
 - that proxies to HTTP/1.1 via TCP or UNIX Domain Sockets,
+- runs CGI apps (because [cgit](http://git.zx2c4.com/cgit/) is great),
 - serves static files,
 - supports [HTTP/2] over TLS, like [nghttpx]
 - and does TLS/SSH demultiplexing, like [sslh].
@@ -74,6 +75,11 @@ hosts: # 443d will proxy to the following virtual hosts
         - type: unix # default is http
           address: /var/run/gitweb/gitweb.sock # format depends on the type
           cut_path: true # means the backend will see /git as /, /git/path as /path, etc. default is false
+      /cgit/:
+        - type: cgi
+          exec: /usr/local/www/cgit/cgit.cgi
+          cut_path: true # means the backend will see /git as /, /git/path as /path, etc. default is false
+          # configure cgit: virtual-root=/cgit/ css=/cgit/cgit.css logo=/cgit/cgit.png
       /static/:
         - type: file
           address: /var/www/static
